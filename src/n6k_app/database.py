@@ -17,9 +17,9 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 import duckdb
 import pyarrow as pa
 from fastapi import FastAPI
-from n6k_server.bridge import Policy
+from virtual_catalog.bridge import Policy
 from n6k_server.pump import WsReject
-from n6k_server.rpc_stream import RpcEntryFn, StreamingRpc, register_rpc_streams
+from virtual_catalog.rpc_stream import RpcEntryFn, StreamingRpc, register_rpc_streams
 
 from n6k_app.connections import ConnectionPool, ConnectionSpec
 from n6k_app.formats import to_arrow, to_record_batches

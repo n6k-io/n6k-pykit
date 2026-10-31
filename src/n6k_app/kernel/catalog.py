@@ -17,15 +17,16 @@ from typing import Any, Optional
 import duckdb
 import pyarrow as pa
 
-from n6k_protocol.filters import Filters, filter_and_project
-from n6k_server.extension import load_n6k_server, load_virtual_catalog_provider
-from n6k_server.provider import (
+from virtual_catalog.filters import Filters, filter_and_project
+from n6k_server.extension import load_n6k_server
+from virtual_catalog.extension import load_vcatprovider
+from virtual_catalog.provider import (
     Provider,
     TableNotFound,
     invalidate_provider_tables,
     register_provider,
 )
-from n6k_server.rpc_stream import register_rpc_streams
+from virtual_catalog.rpc_stream import register_rpc_streams
 
 log = logging.getLogger(__name__)
 
@@ -320,8 +321,8 @@ async def open_catalog(
     ns = Namespaces(*namespaces)
     con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
     load_n6k_server(con)
-    load_virtual_catalog_provider(con)
-    con.execute(f"ATTACH ':memory:' AS {catalog} (TYPE virtual_catalog_provider)")
+    load_vcatprovider(con)
+    con.execute(f"ATTACH ':memory:' AS {catalog} (TYPE vcatprovider)")
     register_provider(con, catalog=catalog, schema_name=DEFAULT_SCHEMA, provider=DataFrameProvider(ns))
     register_provider(con, catalog=catalog, schema_name=METADATA_SCHEMA, provider=MetadataProvider(ns))
     # Off the loop: registration runs SQL that calls back into the providers,

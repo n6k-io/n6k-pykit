@@ -4,7 +4,7 @@ Define data in Python and serve it over the native n6k protocol (the `n6k_server
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.14+
 - [uv](https://docs.astral.sh/uv/)
 - [Bun](https://bun.sh/)
 

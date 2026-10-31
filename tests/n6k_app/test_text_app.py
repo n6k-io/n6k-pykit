@@ -85,12 +85,13 @@ _PAGE_TSX = "export default function Page() {\n  return <h1>hi</h1>;\n}\n"
 
 def _extensions_loadable() -> bool:
     import duckdb
-    from n6k_server.extension import load_n6k_server, load_virtual_catalog_provider
+    from n6k_server.extension import load_n6k_server
+    from virtual_catalog.extension import load_vcatprovider
 
     con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
     try:
         load_n6k_server(con)
-        load_virtual_catalog_provider(con)
+        load_vcatprovider(con)
     except Exception:
         return False
     finally:

@@ -17,7 +17,7 @@ import pyarrow as pa
 
 from n6k_app import Database
 from n6k_app.schema import Schema, Table, schema_from_annotation
-from n6k_server.rpc_stream import RpcEntryFn, StreamingRpc
+from virtual_catalog.rpc_stream import RpcEntryFn, StreamingRpc
 
 
 class Clusters(Schema):

@@ -16,8 +16,8 @@ from typing import Optional
 
 import pyarrow as pa
 
-from n6k_protocol.filters import Filters, filter_and_project
-from n6k_server.provider import PK_METADATA_KEY, Provider, TableNotFound
+from virtual_catalog.filters import Filters, filter_and_project
+from virtual_catalog.provider import PK_METADATA_KEY, Provider, TableNotFound
 
 from n6k_app.table_registry import TableRegistry, TableSpec
 

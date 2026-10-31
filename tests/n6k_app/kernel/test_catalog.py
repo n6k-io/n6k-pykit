@@ -7,7 +7,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from n6k_server.provider import TableNotFound
+from virtual_catalog.provider import TableNotFound
 
 from tests.n6k_app.test_socket_app import _extensions_loadable
 from n6k_app.kernel.catalog import (

@@ -13,7 +13,7 @@ from starlette.routing import WebSocketRoute
 from n6k_app import Database, PostgresDatabase, create_app, policy
 from n6k_app.database import catalog_name_error, open_serving_conn, serving_authenticator, serving_sessions
 from n6k_server.pump import WsReject
-from n6k_server.rpc_stream import StreamingRpc
+from virtual_catalog.rpc_stream import StreamingRpc
 
 # A localhost port with nothing listening: the bridge's reachability check fails
 # fast (connection refused) instead of blocking on a timeout.

@@ -1,0 +1,928 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://n6k.io/schemas/kernel-rpc.json",
+  "title": "n6k kernel JSON-RPC",
+  "description": "Normative definitions of the JSON-RPC 2.0 text frames `n6k kernel` sends and receives on its `--listen` Unix socket. TRANSPORT (not expressible in JSON Schema): a binary message is one raw n6k frame (the `kernel` catalog); a text message is one JSON-RPC message. Batches are not supported. Cell output is sent only to connected clients. CELL STATE: the kernel keeps every cell's code, status and output, built from the same notifications clients receive, so a client that connects late can catch up. Every cell notification carries `seq`, one kernel-wide counter; a connection receives them in `seq` order. To catch up: (1) wait for process.ready; (2) call process.cells, reply seq N, and ignore notifications with seq <= N for cells not in its list (later cells arrive through process.status queued); (3) for a listed cell X, call process.cell_state(X) when needed: until then X's notifications can be ignored, while the call is pending buffer them, and on reply (seq S) apply the cell then the buffered and later notifications for X with seq > S; (4) on process.forgotten remove the cell, and drop a cell whose process.cell_state returns an error. OUTPUT CAP: per cell run, stream data plus every display's current data is capped at 10 MiB of JSON-encoded data; a stream or display that would pass it is dropped for every client and the state, and the first drop sends process.truncated. A replace frees the data it overwrites.",
+  "$defs": {
+    "serverToClient": {
+      "description": "Any text frame the kernel originates.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/result"
+        },
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "$ref": "#/$defs/ready"
+        },
+        {
+          "$ref": "#/$defs/statusNotification"
+        },
+        {
+          "$ref": "#/$defs/stream"
+        },
+        {
+          "$ref": "#/$defs/display"
+        },
+        {
+          "$ref": "#/$defs/truncated"
+        },
+        {
+          "$ref": "#/$defs/forgotten"
+        }
+      ]
+    },
+    "clientToServer": {
+      "description": "Any request the kernel handles.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/execute"
+        },
+        {
+          "$ref": "#/$defs/interrupt"
+        },
+        {
+          "$ref": "#/$defs/cells"
+        },
+        {
+          "$ref": "#/$defs/cell_state"
+        },
+        {
+          "$ref": "#/$defs/forget"
+        }
+      ]
+    },
+    "id": {
+      "description": "JSON-RPC request id. A request without one is a notification and gets no response, not even an error.",
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "execute": {
+      "description": "Queue `code` on the worker thread named `thread`, creating it on first use. Cells on one thread run in order; threads share one namespace. Its progress arrives as process.status (queued, running, completed), process.stream and process.display notifications; the reply, an executeResult, follows process.status completed. A cell that is queued or running is refused with -32001 cell busy.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "process.execute"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "cell_id",
+                "code"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "thread": {
+                  "description": "Defaults to \"main\".",
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "description": "Positional: [cell_id, code, thread?].",
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 3
+            }
+          ]
+        }
+      }
+    },
+    "interrupt": {
+      "description": "Interrupt the cell `cell_id`. A running cell gets KeyboardInterrupt at its next bytecode boundary; blocking native calls are not interrupted. A queued cell, or one not yet running its code, never runs it. Either way its process.status completed has interrupted true. A completed cell is ignored; an unknown cell is -32602. The reply is null once the interrupt is raised; the run's process.execute reply carries the outcome.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "process.interrupt"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "cell_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "description": "Positional: [cell_id].",
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                }
+              ],
+              "minItems": 1,
+              "maxItems": 1
+            }
+          ]
+        }
+      }
+    },
+    "result": {
+      "description": "A request was handled. process.execute returns an executeResult; process.interrupt and process.forget return null.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "id",
+        "result"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "result": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/executeResult"
+            },
+            {
+              "$ref": "#/$defs/cellsResult"
+            },
+            {
+              "$ref": "#/$defs/cellStateResult"
+            }
+          ]
+        }
+      }
+    },
+    "executeResult": {
+      "description": "process.execute: how the run ended.",
+      "type": "object",
+      "required": [
+        "success",
+        "interrupted"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "interrupted": {
+          "$ref": "#/$defs/interrupted"
+        }
+      }
+    },
+    "error": {
+      "description": "A request failed. id is null when the frame could not be parsed or was a batch. Codes: -32700 parse error, -32600 invalid request (also batches), -32601 method not found, -32602 invalid params, -32603 internal error, -32000 server busy, -32001 cell busy.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "id",
+        "error"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "enum": [
+                -32700,
+                -32600,
+                -32601,
+                -32602,
+                -32603,
+                -32000,
+                -32001
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "ready": {
+      "description": "Sent once per connection, first, when the kernel starts serving it. The namespace persists across connections.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.ready"
+        },
+        "params": {
+          "type": "object",
+          "required": [
+            "language",
+            "version",
+            "executable"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "const": "python"
+            },
+            "version": {
+              "description": "sys.version.",
+              "type": "string"
+            },
+            "executable": {
+              "description": "sys.executable; may be empty.",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "statusNotification": {
+      "description": "A cell's lifecycle: queued, running, completed. An interrupt can take a queued cell straight to completed.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.status"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "description": "A process.execute was accepted. Resets the cell: its earlier output is discarded, and output still arriving from an earlier run is never sent.",
+              "type": "object",
+              "required": [
+                "cell_id",
+                "state",
+                "code",
+                "thread",
+                "seq"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                },
+                "state": {
+                  "$ref": "#/$defs/state",
+                  "const": "queued"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "thread": {
+                  "type": "string"
+                },
+                "seq": {
+                  "$ref": "#/$defs/seq"
+                }
+              }
+            },
+            {
+              "description": "The cell began running.",
+              "type": "object",
+              "required": [
+                "cell_id",
+                "state",
+                "seq"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                },
+                "state": {
+                  "$ref": "#/$defs/state",
+                  "const": "running"
+                },
+                "seq": {
+                  "$ref": "#/$defs/seq"
+                }
+              }
+            },
+            {
+              "description": "A cell finished. success is false when it raised or was interrupted; a traceback was sent as a stderr stream.",
+              "type": "object",
+              "required": [
+                "cell_id",
+                "state",
+                "success",
+                "interrupted",
+                "added_vars",
+                "seq"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                },
+                "state": {
+                  "$ref": "#/$defs/state",
+                  "const": "completed"
+                },
+                "success": {
+                  "type": "boolean"
+                },
+                "interrupted": {
+                  "$ref": "#/$defs/interrupted"
+                },
+                "added_vars": {
+                  "description": "Sorted top-level names the cell bound.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "seq": {
+                  "$ref": "#/$defs/seq"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "stream": {
+      "description": "One write to sys.stdout or sys.stderr by a running cell; not line-buffered. A failed cell's traceback arrives as one stderr stream before its process.status completed.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.stream"
+        },
+        "params": {
+          "type": "object",
+          "required": [
+            "cell_id",
+            "target",
+            "data",
+            "seq"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cell_id": {
+              "type": "string"
+            },
+            "target": {
+              "enum": [
+                "stdout",
+                "stderr"
+              ]
+            },
+            "data": {
+              "type": "string"
+            },
+            "seq": {
+              "$ref": "#/$defs/seq"
+            }
+          }
+        }
+      }
+    },
+    "display": {
+      "description": "A display() call, or a cell's trailing expression (title = `ast.unparse` of it) unless the cell ends with `;`. The first display for a displayId creates the output; later ones apply `method` to it.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.display"
+        },
+        "params": {
+          "type": "object",
+          "required": [
+            "cell_id",
+            "displayId",
+            "method",
+            "mime",
+            "data",
+            "seq"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cell_id": {
+              "type": "string"
+            },
+            "displayId": {
+              "description": "Generated as d<n> unless the caller passed one.",
+              "type": "string"
+            },
+            "method": {
+              "description": "replace (default), append or prepend. Passed through from display() unchecked.",
+              "type": "string"
+            },
+            "mime": {
+              "description": "Auto-detected as image/svg+xml (matplotlib Figure), text/html (_repr_html_) or text/plain (pformat), unless the caller passed one.",
+              "type": "string"
+            },
+            "data": {
+              "description": "A string when mime was auto-detected; otherwise the object passed to display(), as JSON. An object that is not JSON is sent as its repr with mime text/plain."
+            },
+            "title": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "seq": {
+              "$ref": "#/$defs/seq"
+            }
+          }
+        }
+      }
+    },
+    "seq": {
+      "description": "Position in the kernel-wide order of cell notifications; see process.cells.",
+      "type": "integer"
+    },
+    "truncated": {
+      "description": "The cell's output passed the cap; further output past it is not sent. Sent at most once per run.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.truncated"
+        },
+        "params": {
+          "type": "object",
+          "required": [
+            "cell_id",
+            "seq"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cell_id": {
+              "type": "string"
+            },
+            "seq": {
+              "$ref": "#/$defs/seq"
+            }
+          }
+        }
+      }
+    },
+    "forgotten": {
+      "description": "A process.forget removed the cell from the kernel state.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "const": "process.forgotten"
+        },
+        "params": {
+          "type": "object",
+          "required": [
+            "cell_id",
+            "seq"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cell_id": {
+              "type": "string"
+            },
+            "seq": {
+              "$ref": "#/$defs/seq"
+            }
+          }
+        }
+      }
+    },
+    "cells": {
+      "description": "List every cell the kernel holds, in first-execute order.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "process.cells"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "type": "object",
+              "maxProperties": 0
+            },
+            {
+              "type": "array",
+              "maxItems": 0
+            }
+          ]
+        }
+      }
+    },
+    "cell_state": {
+      "description": "One cell's full state. An unknown cell is error -32602.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "process.cell_state"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "cell_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "description": "Positional: [cell_id].",
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                }
+              ],
+              "minItems": 1,
+              "maxItems": 1
+            }
+          ]
+        }
+      }
+    },
+    "forget": {
+      "description": "Remove a completed cell from the kernel state and broadcast process.forgotten. An unknown, queued or running cell is error -32602.",
+      "type": "object",
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "const": "process.forget"
+        },
+        "params": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "cell_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "cell_id": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "description": "Positional: [cell_id].",
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                }
+              ],
+              "minItems": 1,
+              "maxItems": 1
+            }
+          ]
+        }
+      }
+    },
+    "state": {
+      "enum": [
+        "queued",
+        "running",
+        "completed"
+      ]
+    },
+    "success": {
+      "description": "null until completed.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "interrupted": {
+      "description": "True when process.interrupt stopped the run; a KeyboardInterrupt the cell raised itself is not.",
+      "type": "boolean"
+    },
+    "cellsResult": {
+      "description": "process.cells.",
+      "type": "object",
+      "required": [
+        "seq",
+        "cells"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/seq"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "cell_id",
+              "thread",
+              "state",
+              "success",
+              "truncated"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "cell_id": {
+                "type": "string"
+              },
+              "thread": {
+                "type": "string"
+              },
+              "state": {
+                "$ref": "#/$defs/state"
+              },
+              "success": {
+                "$ref": "#/$defs/success"
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "cellStateResult": {
+      "description": "process.cell_state.",
+      "type": "object",
+      "required": [
+        "seq",
+        "cell"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/seq"
+        },
+        "cell": {
+          "type": "object",
+          "required": [
+            "cell_id",
+            "thread",
+            "code",
+            "state",
+            "success",
+            "interrupted",
+            "added_vars",
+            "outputs",
+            "truncated"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cell_id": {
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string"
+            },
+            "state": {
+              "$ref": "#/$defs/state"
+            },
+            "success": {
+              "$ref": "#/$defs/success"
+            },
+            "interrupted": {
+              "description": "null until completed.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "added_vars": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "outputs": {
+              "description": "In order of first appearance.",
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "description": "Consecutive process.stream writes to one target, merged.",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "target",
+                      "data"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "stream"
+                      },
+                      "target": {
+                        "enum": [
+                          "stdout",
+                          "stderr"
+                        ]
+                      },
+                      "data": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "description": "One displayId: replace resets parts, append/prepend add to the end/front. title and icon are the latest given.",
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "displayId",
+                      "parts"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "display"
+                      },
+                      "displayId": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "icon": {
+                        "type": "string"
+                      },
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "mime",
+                            "data"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "mime": {
+                              "type": "string"
+                            },
+                            "data": {}
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

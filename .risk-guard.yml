@@ -1,0 +1,55 @@
+# Risk Guard configuration
+# Generated during initial setup on 2026-03-08
+# Documentation: https://ossriskguard.app/docs/configuration
+
+version: 2
+workflow:
+  mode: active
+expected_failures:
+  package/pypi/black:
+    checks:
+      - PACKAGE_RELEASE_COOLDOWN
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/fastapi:
+    checks:
+      - PACKAGE_RELEASE_COOLDOWN
+      - VULN_HISTORICAL_SEVERE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/httpx:
+    checks:
+      - VULN_HISTORICAL_SEVERE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/pandas:
+    checks:
+      - VULN_HISTORICAL_SEVERE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/pyarrow:
+    checks:
+      - VULN_HISTORICAL_SEVERE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/pycodestyle:
+    checks:
+      - SOURCE_REPO_NOT_FOUND
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/pyyaml:
+    checks:
+      - PACKAGE_NAME_MISMATCH
+      - SOURCE_MALFORMED_METADATA
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  package/pypi/uvicorn:
+    checks:
+      - VULN_HISTORICAL_SEVERE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com
+  root:
+    checks:
+      - SOURCE_NO_LICENSE
+    reason: Existing issue at setup
+    approved_by: srossross@gmail.com

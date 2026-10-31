@@ -1,0 +1,73 @@
+[project]
+name = "n6k"
+version = "0.10.0"
+description = "Arrow/Parquet REST server"
+license = "MIT"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pyarrow>=19",
+    "pandas>=2",
+    "duckdb==1.5.4",
+    "n6k-duckdb[mcp]>=0.11.3",
+    "python-dotenv>=1",
+    "mistune>=3.3.3",
+]
+
+[project.optional-dependencies]
+# A real psycopg Connection injected into an @rpc (see database.py / connections.py).
+# Optional: the DuckDB postgres bridge needs no driver; only raw-Connection rpcs do.
+postgres = ["psycopg[binary,pool]>=3.3"]
+
+[project.scripts]
+n6k = "n6k_app.cli:cli"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.0",
+    "flake8>=7.3.0",
+    "httpx>=0.28",
+    "mypy>=1.19.1",
+    "pandas-stubs>=2",
+    "pyarrow-stubs>=20.0.0.20251215",
+    "psycopg[binary,pool]>=3.3",
+    "pytest>=8",
+    "pytest-asyncio>=0.25",
+    "jsonschema>=4.26.0",
+    "types-jsonschema>=4.26.0.20261006",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nextpy_server", "src/n6k_app"]
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = "src"
+strict = true
+
+
+[tool.black]
+line-length = 120
+target-version = ["py314"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# The suite lives in tests/; scratch/ holds throwaway experiments, not tests.
+testpaths = ["tests"]
+markers = [
+    "no_broken: build the test app dir without the deliberately-broken page",
+    "exclude_postgres: skip this test on the postgres upstream",
+    "exclude_mysql: skip this test on the mysql upstream",
+    "xfail_postgres: strict xfail on the postgres upstream",
+    "xfail_mysql: strict xfail on the mysql upstream",
+]
+
+[tool.uv.sources]
+n6k-duckdb = { path = "../duckdb-n6k-protocol/packages/python", editable = true }
+

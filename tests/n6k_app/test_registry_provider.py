@@ -11,8 +11,8 @@ import duckdb
 import pandas as pd
 import pyarrow as pa
 
-from n6k_server.extension import load_virtual_catalog_provider
-from n6k_server.provider import register_provider
+from virtual_catalog.extension import load_vcatprovider
+from virtual_catalog.provider import register_provider
 
 from n6k_app.registry_provider import RegistryProvider
 from n6k_app.table_registry import TableRegistry
@@ -24,8 +24,8 @@ async def _q(con: duckdb.DuckDBPyConnection, sql: str) -> list[Any]:
 
 def _conn(reg: TableRegistry) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    load_virtual_catalog_provider(con)
-    con.execute("ATTACH ':memory:' AS db (TYPE virtual_catalog_provider)")
+    load_vcatprovider(con)
+    con.execute("ATTACH ':memory:' AS db (TYPE vcatprovider)")
     con.execute("USE db")
     for schema in sorted(reg.schemas or {"main"}):
         con.execute(f'CREATE SCHEMA IF NOT EXISTS "db"."{schema}"')

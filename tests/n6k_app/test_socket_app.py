@@ -64,11 +64,12 @@ def order_count(session: Annotated[Session, sales]) -> list:
 
 
 def _extensions_loadable() -> bool:
-    from n6k_server.extension import load_virtual_catalog_provider, load_n6k_server
+    from n6k_server.extension import load_n6k_server
+    from virtual_catalog.extension import load_vcatprovider
 
     try:
         con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-        load_virtual_catalog_provider(con)
+        load_vcatprovider(con)
         load_n6k_server(con)
         con.close()
     except Exception:

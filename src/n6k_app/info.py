@@ -1,7 +1,7 @@
 """``GET /_info`` — runtime version + capability diagnostics.
 
 Reports *what actually loaded* — the real extension file, its version, and whether
-the handler's required functions are present — so a stale/wrong ``virtual_catalog_provider`` (which
+the handler's required functions are present — so a stale/wrong ``vcatprovider`` (which
 otherwise surfaces only as a cryptic ``... does not exist`` deep in a query) is one
 ``curl`` away.
 """
@@ -18,10 +18,10 @@ from typing import Any
 
 import duckdb
 from fastapi import FastAPI, Request
-from n6k_server.extension import (
+from virtual_catalog.extension import (
     VIRTUAL_CATALOG_EXT_DIR_ENV,
-    VIRTUAL_CATALOG_PROVIDER,
-    load_virtual_catalog_provider,
+    VCATPROVIDER,
+    load_vcatprovider,
     local_extension_path,
 )
 from starlette.responses import JSONResponse
@@ -30,9 +30,9 @@ from n6k_app.database import page_databases_by_slug
 
 _log = logging.getLogger(__name__)
 
-# Functions the session path requires from the virtual_catalog_provider extension.
+# Functions the session path requires from the vcatprovider extension.
 # If any are missing, the loaded extension is stale or wrong.
-_REQUIRED_EXT_FUNCTIONS = ("provider_register", "provider_unregister", "provider_table_permissions")
+_REQUIRED_EXT_FUNCTIONS = ("vcatprovider_register", "vcatprovider_unregister", "vcatprovider_table_permissions")
 
 
 def _server_versions() -> dict[str, Any]:
@@ -50,7 +50,7 @@ def _server_versions() -> dict[str, Any]:
 
 def _extension_info() -> dict[str, Any]:
     """Load the n6k extension exactly as a session would and report what landed."""
-    local_path = local_extension_path(VIRTUAL_CATALOG_PROVIDER)
+    local_path = local_extension_path(VCATPROVIDER)
     info: dict[str, Any] = {
         VIRTUAL_CATALOG_EXT_DIR_ENV: os.environ.get(VIRTUAL_CATALOG_EXT_DIR_ENV),
         "local_extension_path": local_path,
@@ -58,9 +58,9 @@ def _extension_info() -> dict[str, Any]:
     }
     try:
         con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-        load_virtual_catalog_provider(con)
+        load_vcatprovider(con)
 
-        cur = con.execute("SELECT * FROM duckdb_extensions() WHERE extension_name = ?", [VIRTUAL_CATALOG_PROVIDER])
+        cur = con.execute("SELECT * FROM duckdb_extensions() WHERE extension_name = ?", [VCATPROVIDER])
         cols = [d[0] for d in cur.description]
         rows = [dict(zip(cols, r)) for r in cur.fetchall()]
         if rows:
@@ -89,7 +89,7 @@ def _extension_info() -> dict[str, Any]:
                 if not local_path
                 else f"The extension at {local_path} is stale — rebuild it (make in duckdb-virtual-catalog)."
             )
-            info["warning"] = f"Loaded {VIRTUAL_CATALOG_PROVIDER} is missing {missing}. {hint}"
+            info["warning"] = f"Loaded {VCATPROVIDER} is missing {missing}. {hint}"
         con.close()
     except Exception as exc:  # report, don't 500 — this is the diagnostics route
         info["ok"] = False

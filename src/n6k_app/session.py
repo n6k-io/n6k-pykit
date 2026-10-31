@@ -1,8 +1,8 @@
 """Provisioning of the DuckDB connection a served n6k session runs on.
 
 One connection carries every catalog a socket serves. A plain database's catalog
-is a ``virtual_catalog_provider`` ATTACHment with one ``RegistryProvider`` per
-schema; an upstream database's is a ``virtual_catalog_bridge`` catalog created by
+is a ``vcatprovider`` ATTACHment with one ``RegistryProvider`` per
+schema; an upstream database's is a ``vcatbridge`` catalog created by
 ``bridge()``. Both carry their ``view_sql`` views as real DuckDB views. The connection is then
 handed to ``n6k_server.pump.serve_and_close_connection``, which owns it for the rest of
 its life — the C++ reactor serves the wire from it and closes it at teardown.
@@ -13,8 +13,9 @@ import logging
 
 import duckdb
 
-from n6k_server.extension import load_virtual_catalog_provider, load_n6k_server
-from n6k_server.provider import register_provider
+from n6k_server.extension import load_n6k_server
+from virtual_catalog.extension import load_vcatprovider
+from virtual_catalog.provider import register_provider
 
 from n6k_app.connections import ConnectionPool
 from n6k_app.db_log import execute_and_log
@@ -29,15 +30,15 @@ _LABEL = "session"
 def create_serving_conn() -> duckdb.DuckDBPyConnection:
     """A fresh connection with both extensions loaded and nothing attached yet.
 
-    ``virtual_catalog_provider`` backs the provider catalogs; ``n6k_server`` is the
+    ``vcatprovider`` backs the provider catalogs; ``n6k_server`` is the
     reactor that will serve this connection. Both must load before
     ``finalize_serving_conn`` disables external access. An upstream database adds
-    ``virtual_catalog_bridge`` on top, from its own catalog's ``bridge()``.
+    ``vcatbridge`` on top, from its own catalog's ``bridge()``.
 
     Blocking (extension install/load), so call it inside ``asyncio.to_thread``.
     """
     con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    load_virtual_catalog_provider(con)
+    load_vcatprovider(con)
     load_n6k_server(con)
     return con
 
@@ -66,7 +67,7 @@ def attach_catalog(
         connection_pool.setup_bridge(con, target_catalog=catalog)
         execute_and_log(_LABEL, con, f'USE "{catalog}"')
     else:
-        execute_and_log(_LABEL, con, f"ATTACH ':memory:' AS \"{catalog}\" (TYPE virtual_catalog_provider)")
+        execute_and_log(_LABEL, con, f"ATTACH ':memory:' AS \"{catalog}\" (TYPE vcatprovider)")
         execute_and_log(_LABEL, con, f'USE "{catalog}"')
         for schema in sorted(registry.schemas or {"main"}):
             execute_and_log(_LABEL, con, f'CREATE SCHEMA IF NOT EXISTS "{catalog}"."{schema}"')
@@ -91,13 +92,13 @@ def finalize_serving_conn(con: duckdb.DuckDBPyConnection, *, bridged: bool) -> N
 
     Separate from ``attach_catalog`` because it is a connection-wide switch and
     the next catalog's bridge would need the access it takes away. A bridge target
-    has ``virtual_catalog_bridge`` loaded, so it gets ``virtual_catalog_lockdown``.
+    has ``vcatbridge`` loaded, so it gets ``vcatbridge_lockdown``.
     """
     if bridged:
         execute_and_log(
             _LABEL,
             con,
-            "SELECT virtual_catalog_lockdown(current_setting('memory_limit'), current_setting('threads'))",
+            "SELECT vcatbridge_lockdown(current_setting('memory_limit'), current_setting('threads'))",
         )
     else:
         execute_and_log(_LABEL, con, "SET enable_external_access = false")

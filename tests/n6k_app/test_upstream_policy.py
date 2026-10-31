@@ -7,7 +7,7 @@ import pytest
 from n6k_app.connections import ConnectionPool, ConnectionSpec
 from n6k_app.database import MysqlDatabase, PostgresDatabase, policy, primary_key
 from n6k_app.session import finalize_serving_conn
-from n6k_server.bridge import Policy
+from virtual_catalog.bridge import Policy
 
 
 def test_policy_without_check_passes_predicate() -> None:

@@ -55,13 +55,14 @@ def home(c: Components):
 
 
 def _extensions_loadable() -> bool:
-    from n6k_server.extension import load_n6k, load_n6k_server, load_virtual_catalog_provider
+    from n6k_server.extension import load_n6k, load_n6k_server
+    from virtual_catalog.extension import load_vcatprovider
 
     try:
         con = duckdb.connect(config={"allow_unsigned_extensions": "true"})
         con.load_extension("httpfs")
         load_n6k(con)
-        load_virtual_catalog_provider(con)
+        load_vcatprovider(con)
         load_n6k_server(con)
         con.close()
     except Exception:

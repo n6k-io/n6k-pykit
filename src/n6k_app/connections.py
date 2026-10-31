@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import duckdb
-from n6k_server.bridge import Policy, bridge
+from virtual_catalog.bridge import Policy, bridge
 
 from n6k_app.drivers.base import NativePool, get_driver
 

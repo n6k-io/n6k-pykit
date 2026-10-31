@@ -17,7 +17,7 @@ from n6k_app.database import Database, PostgresDatabase, policy
 from n6k_app.drivers.base import driver_for_annotation
 from n6k_app.session_state import Session
 from n6k_app.table_registry import _rpc_param_binding
-from n6k_server.rpc_stream import StreamingRpc
+from virtual_catalog.rpc_stream import StreamingRpc
 
 ROW = pa.schema([("v", pa.int64())])
 

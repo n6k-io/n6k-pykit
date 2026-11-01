@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from n6k_server.pump import WebSocketLike, serve_and_close_connection
+from virtual_catalog.provider import release_providers
 
 from n6k_app.actions import Action
 from n6k_app.database import open_serving_conn, serving_authenticator, serving_sessions
@@ -38,8 +39,16 @@ async def serve_databases(
         text_app = build_text_app(name, databases, actions, sessions, render, show)
     except Exception as exc:
         _log.exception("could not build the text app for %s", name)
+        release_providers(con)
         con.close()
         await transport.close(code=1011, reason=str(exc)[:120])
         return
 
-    await serve_and_close_connection(transport, con, serving_authenticator(databases, sessions), {}, text_app=text_app)
+    await serve_and_close_connection(
+        transport,
+        con,
+        serving_authenticator(databases, sessions),
+        {},
+        text_app=text_app,
+        on_close=release_providers,
+    )

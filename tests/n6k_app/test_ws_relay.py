@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 from n6k_protocol.engine import pack_frame, unpack_frame
 from n6k_protocol.protocol import FT_HELLO, FT_HELLO_ACK, FT_OPEN, FT_OPEN_ACK, N6K_PROTOCOL_VERSION
 from n6k_app import socket_app
-from n6k_app.ws_relay import build_relay_app
+from n6k_server.ws_relay import build_relay_app
 from tests.n6k_app.test_socket_app import _TWO_DB_FILE, _extensions_loadable
 
 pytestmark = pytest.mark.skipif(

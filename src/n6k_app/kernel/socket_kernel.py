@@ -12,11 +12,12 @@ from typing import Any
 import duckdb
 from n6k_server.jsonrpc import JsonRpcApp
 from n6k_server.pump import serve_and_close_connection
+from n6k_server.stream import StreamTransport, serve_unix
+from virtual_catalog.provider import release_providers
 
 from n6k_app.kernel.capture import Capture
 from n6k_app.kernel.catalog import CATALOG, open_catalog
 from n6k_app.kernel.kernel import Kernel
-from n6k_app.socket_app import StreamTransport, serve_unix
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ async def serve_connection(kernel: Kernel, transport: StreamTransport) -> None:
             {},
             text_app=JsonRpcApp(kernel.rpc),
             on_serve=kernel.on_serve,
+            on_close=release_providers,
         )
     finally:
         kernel.disconnect(transport)

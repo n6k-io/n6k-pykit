@@ -40,6 +40,10 @@ dev = [
     "types-jsonschema>=4.26.0.20261006",
 ]
 
+[tool.uv.sources]
+n6k-duckdb = { path = "../duckdb-n6k-protocol/packages/python", editable = true }
+duckdb-virtual-catalog = { path = "../duckdb-virtual-catalog/python-virtual-catalog", editable = true }
+
 [build-system]
 requires = ["hatchling>=1.33"]
 build-backend = "hatchling.build"

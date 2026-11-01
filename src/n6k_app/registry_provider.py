@@ -12,17 +12,15 @@ Write-fn contract (defined here — the DSL leaves it open):
 """
 
 import asyncio
-from typing import Optional
 
 import pyarrow as pa
 
-from virtual_catalog.filters import Filters, filter_and_project
-from virtual_catalog.provider import PK_METADATA_KEY, Provider, TableNotFound
+from virtual_catalog.provider import PK_METADATA_KEY, TableNotFound, TableProvider
 
 from n6k_app.table_registry import TableRegistry, TableSpec
 
 
-class RegistryProvider(Provider):
+class RegistryProvider(TableProvider):
     def __init__(self, registry: TableRegistry, schema: str) -> None:
         self._registry = registry
         self._schema = schema
@@ -33,8 +31,14 @@ class RegistryProvider(Provider):
             raise TableNotFound(name)
         return spec
 
-    async def list_tables(self) -> list[str]:
+    async def tables(self) -> list[str]:
         return [n for n, s in self._registry.table_specs().items() if s.schema == self._schema]
+
+    async def table(self, name: str) -> pa.Table:
+        self._spec(name)
+        # load_table materialises tables purely in Python — no DuckDB round-trip,
+        # so no provider re-entrancy.
+        return await asyncio.to_thread(self._registry.load_table, name)
 
     async def schema(self, name: str) -> pa.Schema:
         spec = self._spec(name)
@@ -42,14 +46,6 @@ class RegistryProvider(Provider):
         if spec.primary_keys:
             sch = sch.with_metadata({PK_METADATA_KEY: ",".join(spec.primary_keys).encode("utf-8")})
         return sch
-
-    async def scan(self, name: str, columns: Optional[list[str]], filters: Filters) -> pa.Table:
-        self._spec(name)
-        # load_table materialises tables purely in Python — no DuckDB round-trip,
-        # so no provider re-entrancy. The provider filters itself; DuckDB does not
-        # re-filter provider scans.
-        table = await asyncio.to_thread(self._registry.load_table, name)
-        return filter_and_project(table, columns, filters)
 
     async def insert(self, name: str, rows: pa.Table) -> int:
         fn = self._spec(name).insert_fn

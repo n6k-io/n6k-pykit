@@ -303,15 +303,28 @@ wheels = [
 [[package]]
 name = "duckdb-virtual-catalog"
 version = "0.1.1"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../duckdb-virtual-catalog/python-virtual-catalog" }
 dependencies = [
     { name = "duckdb" },
     { name = "numpy" },
     { name = "pyarrow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/9d/7e91f4197dbec757f89224c90ff41a4390a8149673aa9878bc3a37dc5a82/duckdb_virtual_catalog-0.1.1.tar.gz", hash = "sha256:b3cc0772ce7aa2aca426f3096d0c2c998b3779434dc96af571215f063a652e50", size = 40927, upload-time = "2026-10-31T18:03:36.075Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/e7/e29b7df8f076c2cef8038a8a88b4386c15bb62cb8ea7f3dbd7d357cf2ec2/duckdb_virtual_catalog-0.1.1-py3-none-any.whl", hash = "sha256:6cf2696cac722386ea0e5a5c0fc9eacf8b1f869f23a27def659374dc018ddde5", size = 47773, upload-time = "2026-10-31T18:03:34.656Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", specifier = ">=1.5.6" },
+    { name = "numpy" },
+    { name = "pyarrow" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.13" },
+    { name = "pyarrow-stubs" },
+    { name = "pytest", specifier = ">=7" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "python-dotenv", specifier = ">=1" },
+    { name = "ruff", specifier = ">=0.8" },
 ]
 
 [[package]]
@@ -758,7 +771,7 @@ wheels = [
 
 [[package]]
 name = "n6k"
-version = "0.10.0"
+version = "0.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -797,10 +810,10 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.5" },
     { name = "duckdb", specifier = "==1.5.6" },
-    { name = "duckdb-virtual-catalog", specifier = ">=0.1.1" },
+    { name = "duckdb-virtual-catalog", editable = "../duckdb-virtual-catalog/python-virtual-catalog" },
     { name = "fastapi", specifier = ">=0.162" },
     { name = "mistune", specifier = ">=3.4" },
-    { name = "n6k-duckdb", extras = ["mcp"], specifier = ">=0.12" },
+    { name = "n6k-duckdb", extras = ["mcp"], editable = "../duckdb-n6k-protocol/packages/python" },
     { name = "pandas", specifier = ">=3.1" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres'", specifier = ">=3.3.6" },
     { name = "pyarrow", specifier = ">=26" },
@@ -826,8 +839,8 @@ dev = [
 
 [[package]]
 name = "n6k-duckdb"
-version = "0.12.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.12.1"
+source = { editable = "../duckdb-n6k-protocol/packages/python" }
 dependencies = [
     { name = "jsonschema" },
     { name = "msgpack" },
@@ -835,14 +848,49 @@ dependencies = [
     { name = "pyarrow" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/6a/bf02a4e604264cec520302e73fd9ad10eb90b781bce1947ba10932ecb2e0/n6k_duckdb-0.12.0.tar.gz", hash = "sha256:ee99ab8001851fd2153ddd85e14cf4fa5b5933fb8ff3adf41457a8c46628de5d", size = 88589, upload-time = "2026-10-31T19:28:49.407Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/b1/757023c73fedd352bf90a794ae4a8ffa84af89f2cafe2f09e3ae8fb58386/n6k_duckdb-0.12.0-py3-none-any.whl", hash = "sha256:9835452edcf8485176bfdc9a701b65c3855d40ba8680e7bc454ad402ae9d25b1", size = 100867, upload-time = "2026-10-31T19:28:47.997Z" },
-]
 
 [package.optional-dependencies]
 mcp = [
     { name = "mcp" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1.5.6" },
+    { name = "duckdb", marker = "extra == 'test-server'", specifier = ">=1.5.6" },
+    { name = "duckdb-virtual-catalog", marker = "extra == 'test-server'", specifier = ">=0.1.1" },
+    { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.100" },
+    { name = "fastapi", marker = "extra == 'test-server'", specifier = ">=0.100" },
+    { name = "jsonschema" },
+    { name = "mcp", marker = "python_full_version >= '3.10' and extra == 'mcp'", specifier = ">=2.3,<3" },
+    { name = "msgpack" },
+    { name = "numpy" },
+    { name = "pyarrow" },
+    { name = "python-dotenv", marker = "extra == 'test-server'", specifier = ">=1" },
+    { name = "starlette", marker = "extra == 'fastapi'" },
+    { name = "typing-extensions" },
+    { name = "uvicorn", marker = "extra == 'test-server'", specifier = ">=0.27" },
+    { name = "watchfiles", marker = "extra == 'test-server'", specifier = ">=0.21" },
+]
+provides-extras = ["duckdb", "fastapi", "mcp", "test-server"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=24" },
+    { name = "duckdb", specifier = ">=1.5.6" },
+    { name = "duckdb-virtual-catalog", specifier = ">=0.1.1" },
+    { name = "fastapi", specifier = ">=0.100" },
+    { name = "flake8", specifier = ">=7" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "msgpack-types" },
+    { name = "mypy", specifier = ">=1" },
+    { name = "pandas", specifier = ">=2" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.13.0" },
+    { name = "pytest", specifier = ">=7" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "python-dotenv", specifier = ">=1" },
+    { name = "types-jsonschema" },
+    { name = "websockets", specifier = ">=12" },
 ]
 
 [[package]]

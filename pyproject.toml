@@ -11,8 +11,8 @@ dependencies = [
     "pyarrow>=26",
     "pandas>=3.1",
     "duckdb==1.5.6",
-    "n6k-duckdb[mcp]>=0.12",
-    "duckdb-virtual-catalog>=0.1.1",
+    "n6k-duckdb[mcp]>=0.12.2",
+    "duckdb-virtual-catalog>=0.1.2",
     "python-dotenv>=1.2",
     "mistune>=3.4",
 ]
@@ -41,8 +41,8 @@ dev = [
 ]
 
 [tool.uv.sources]
-n6k-duckdb = { path = "../duckdb-n6k-protocol/packages/python", editable = true }
-duckdb-virtual-catalog = { path = "../duckdb-virtual-catalog/python-virtual-catalog", editable = true }
+#n6k-duckdb = { path = "../duckdb-n6k-protocol/packages/python", editable = true }
+#duckdb-virtual-catalog = { path = "../duckdb-virtual-catalog/python-virtual-catalog", editable = true }
 
 [build-system]
 requires = ["hatchling>=1.33"]

@@ -302,7 +302,7 @@ wheels = [
 
 [[package]]
 name = "duckdb-virtual-catalog"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "../duckdb-virtual-catalog/python-virtual-catalog" }
 dependencies = [
     { name = "duckdb" },
@@ -839,7 +839,7 @@ dev = [
 
 [[package]]
 name = "n6k-duckdb"
-version = "0.12.1"
+version = "0.12.2"
 source = { editable = "../duckdb-n6k-protocol/packages/python" }
 dependencies = [
     { name = "jsonschema" },

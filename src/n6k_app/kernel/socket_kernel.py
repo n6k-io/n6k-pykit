@@ -1,6 +1,6 @@
 """``n6k kernel``: listen on a path and serve the kernel to every client that connects.
 
-Each connection carries the ``kernel`` catalog (n6k binary frames) and the exec API
+Each connection carries the kernel's catalog (n6k binary frames) and the exec API
 (JSON-RPC text frames)."""
 
 import asyncio

@@ -1,10 +1,7 @@
 """Serve a file's databases over a Unix-domain socket the worker listens on
 (``run_listen``). Framing: ``n6k_server.stream.StreamTransport``.
 
-The dialing parent authenticates each connection; the worker goes straight to serving.
-Every database the file defines is attached to one connection handed to the
-``n6k_server`` extension; each client FT_OPEN's ``catalog`` alias selects which of them
-the session reads. JSON-RPC frames call the file's ``@action``s.
+The dialer authenticates each connection; the worker serves via ``serve.serve_databases``.
 """
 
 import asyncio

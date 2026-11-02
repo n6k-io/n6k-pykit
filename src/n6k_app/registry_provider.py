@@ -1,7 +1,5 @@
-"""Driver ``Provider`` backed by a ``TableRegistry``, one per schema.
+"""``TableProvider`` backed by a ``TableRegistry``, one per schema.
 
-Bridges the synchronous, lazy ``TableRegistry`` to the driver's async
-``Provider`` contract; registered per schema in ``session.attach_catalog``.
 SQL views are NOT exposed here — they become real DuckDB ``CREATE VIEW``s. Each
 write op is gated by the table's ``insert``/``update``/``delete`` fn.
 
@@ -36,8 +34,7 @@ class RegistryProvider(TableProvider):
 
     async def table(self, name: str) -> pa.Table:
         self._spec(name)
-        # load_table materialises tables purely in Python — no DuckDB round-trip,
-        # so no provider re-entrancy.
+        # Off-loop is safe only because load_table never touches DuckDB (no provider re-entrancy).
         return await asyncio.to_thread(self._registry.load_table, name)
 
     async def schema(self, name: str) -> pa.Schema:

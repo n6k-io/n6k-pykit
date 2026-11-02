@@ -1,4 +1,4 @@
-"""Expose the kernel's in-memory DataFrames as the n6k catalog ``kernel``.
+"""Expose the kernel's in-memory DataFrames as an n6k catalog (named by ``open_catalog``'s ``catalog``).
 
 The ``python`` RPC execs into the globals and ``sh`` runs a subprocess: arbitrary code,
 the same capability the exec channel grants. Access control is the socket, not these ops.
@@ -125,8 +125,6 @@ class Namespaces:
 
 
 class DataFrameProvider(TableProvider):
-    """One table per DataFrame in the namespaces."""
-
     def __init__(self, namespaces: Namespaces) -> None:
         self._ns = namespaces
 
@@ -138,7 +136,7 @@ class DataFrameProvider(TableProvider):
 
 
 class MetadataProvider(TableProvider):
-    """``kernel.metadata``: rebuilt on every request."""
+    """``<catalog>.metadata``: rebuilt on every request."""
 
     def __init__(self, namespaces: Namespaces) -> None:
         self._ns = namespaces

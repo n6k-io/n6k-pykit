@@ -463,7 +463,7 @@ def ws(socket: str, host: str, port: int, log_level: str) -> None:
     `ATTACH 'n6k://<host>:<port>' AS x (TYPE n6k);`. Each WebSocket gets its own
     connection to the socket.
     """
-    from n6k_app.ws_relay import run_relay
+    from n6k_server.ws_relay import run_relay
 
     setup_logging(log_level)
     click.echo(f"Relaying ws://{host}:{port}/ws ⇄ unix:{socket}")

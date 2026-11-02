@@ -302,16 +302,16 @@ wheels = [
 
 [[package]]
 name = "duckdb-virtual-catalog"
-version = "0.1.1"
+version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "duckdb" },
     { name = "numpy" },
     { name = "pyarrow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/9d/7e91f4197dbec757f89224c90ff41a4390a8149673aa9878bc3a37dc5a82/duckdb_virtual_catalog-0.1.1.tar.gz", hash = "sha256:b3cc0772ce7aa2aca426f3096d0c2c998b3779434dc96af571215f063a652e50", size = 40927, upload-time = "2026-10-31T18:03:36.075Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/5a/b187fd1e200c25150e9f769cbc1ec796ed566260301e69a2b600eb8d8b59/duckdb_virtual_catalog-0.1.2.tar.gz", hash = "sha256:f904320b48e806f792103ad9bc1efc84c809758a4b7c26c5a024461dce974be4", size = 41417, upload-time = "2026-11-01T22:38:20.67Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/e7/e29b7df8f076c2cef8038a8a88b4386c15bb62cb8ea7f3dbd7d357cf2ec2/duckdb_virtual_catalog-0.1.1-py3-none-any.whl", hash = "sha256:6cf2696cac722386ea0e5a5c0fc9eacf8b1f869f23a27def659374dc018ddde5", size = 47773, upload-time = "2026-10-31T18:03:34.656Z" },
+    { url = "https://files.pythonhosted.org/packages/30/9c/7b51b1757d24df72e995ad983bed18beb4582ac9a27aca838ae35007f16a/duckdb_virtual_catalog-0.1.2-py3-none-any.whl", hash = "sha256:936c3b109ad2c6568809357601946a05dcbc1e85df4efa0867fa8fce797c00b2", size = 48905, upload-time = "2026-11-01T22:38:19.202Z" },
 ]
 
 [[package]]
@@ -758,7 +758,7 @@ wheels = [
 
 [[package]]
 name = "n6k"
-version = "0.10.0"
+version = "0.11.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -797,10 +797,10 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.5" },
     { name = "duckdb", specifier = "==1.5.6" },
-    { name = "duckdb-virtual-catalog", specifier = ">=0.1.1" },
+    { name = "duckdb-virtual-catalog", specifier = ">=0.1.2" },
     { name = "fastapi", specifier = ">=0.162" },
     { name = "mistune", specifier = ">=3.4" },
-    { name = "n6k-duckdb", extras = ["mcp"], specifier = ">=0.12" },
+    { name = "n6k-duckdb", extras = ["mcp"], specifier = ">=0.12.2" },
     { name = "pandas", specifier = ">=3.1" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres'", specifier = ">=3.3.6" },
     { name = "pyarrow", specifier = ">=26" },
@@ -826,7 +826,7 @@ dev = [
 
 [[package]]
 name = "n6k-duckdb"
-version = "0.12.0"
+version = "0.12.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
@@ -835,9 +835,9 @@ dependencies = [
     { name = "pyarrow" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/6a/bf02a4e604264cec520302e73fd9ad10eb90b781bce1947ba10932ecb2e0/n6k_duckdb-0.12.0.tar.gz", hash = "sha256:ee99ab8001851fd2153ddd85e14cf4fa5b5933fb8ff3adf41457a8c46628de5d", size = 88589, upload-time = "2026-10-31T19:28:49.407Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/e3/c997619654229243aff00c2666b7313339ffc21c00cbc644664dabf0dc40/n6k_duckdb-0.12.2.tar.gz", hash = "sha256:75df05e421316f6ece9adbccca81418fd613797670dad59acdd9aae711bd416e", size = 90848, upload-time = "2026-11-02T12:56:34.211Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/b1/757023c73fedd352bf90a794ae4a8ffa84af89f2cafe2f09e3ae8fb58386/n6k_duckdb-0.12.0-py3-none-any.whl", hash = "sha256:9835452edcf8485176bfdc9a701b65c3855d40ba8680e7bc454ad402ae9d25b1", size = 100867, upload-time = "2026-10-31T19:28:47.997Z" },
+    { url = "https://files.pythonhosted.org/packages/70/73/a0cab75f08d75f22475820d3a1ed90d10eea7f22bc98d6f8b7fb63bff372/n6k_duckdb-0.12.2-py3-none-any.whl", hash = "sha256:2e78ebc30ffd66cdde3678960543ed664194e053bac8ba5015da3bbaf060bbb8", size = 104156, upload-time = "2026-11-02T12:56:32.892Z" },
 ]
 
 [package.optional-dependencies]

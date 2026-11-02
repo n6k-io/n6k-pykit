@@ -1,4 +1,4 @@
-"""Expose the kernel's in-memory DataFrames as the n6k catalog ``kernel``.
+"""Expose the kernel's in-memory DataFrames as an n6k catalog (named by ``open_catalog``'s ``catalog``).
 
 The ``python`` RPC execs into the globals and ``sh`` runs a subprocess: arbitrary code,
 the same capability the exec channel grants. Access control is the socket, not these ops.
@@ -17,12 +17,11 @@ from typing import Any, Optional
 import duckdb
 import pyarrow as pa
 
-from virtual_catalog.filters import Filters, filter_and_project
 from n6k_server.extension import load_n6k_server
 from virtual_catalog.extension import load_vcatprovider
 from virtual_catalog.provider import (
-    Provider,
     TableNotFound,
+    TableProvider,
     invalidate_provider_tables,
     register_provider,
 )
@@ -125,29 +124,19 @@ class Namespaces:
         return list(seen.values())
 
 
-class DataFrameProvider(Provider):
-    """One table per DataFrame in the namespaces."""
-
+class DataFrameProvider(TableProvider):
     def __init__(self, namespaces: Namespaces) -> None:
         self._ns = namespaces
 
-    async def list_tables(self) -> list[str]:
-        tables = list(self._ns.frames())
-        log.debug("main.list_tables -> %s", tables)
-        return tables
+    async def tables(self) -> list[str]:
+        return list(self._ns.frames())
 
-    async def schema(self, name: str) -> pa.Schema:
-        log.debug("main.schema(%r)", name)
-        return _to_arrow(self._ns.frame(name)).schema
-
-    async def scan(self, name: str, columns: Optional[list[str]], filters: Filters) -> pa.Table:
-        arrow = filter_and_project(_to_arrow(self._ns.frame(name)), columns, filters)
-        log.debug("main.scan(%r, columns=%s) -> %d rows", name, columns, arrow.num_rows)
-        return arrow
+    async def table(self, name: str) -> pa.Table:
+        return _to_arrow(self._ns.frame(name))
 
 
-class MetadataProvider(Provider):
-    """``kernel.metadata``: rebuilt on every request."""
+class MetadataProvider(TableProvider):
+    """``<catalog>.metadata``: rebuilt on every request."""
 
     def __init__(self, namespaces: Namespaces) -> None:
         self._ns = namespaces
@@ -155,23 +144,14 @@ class MetadataProvider(Provider):
     def _builders(self) -> dict[str, Callable[[], pa.Table]]:
         return {"kernel": self._build_kernel_table, "vars": self._build_vars_table}
 
-    def _table(self, name: str) -> pa.Table:
+    async def tables(self) -> list[str]:
+        return list(self._builders())
+
+    async def table(self, name: str) -> pa.Table:
         builder = self._builders().get(name)
         if builder is None:
             raise TableNotFound(name)
         return builder()
-
-    async def list_tables(self) -> list[str]:
-        return list(self._builders())
-
-    async def schema(self, name: str) -> pa.Schema:
-        log.debug("metadata.schema(%r)", name)
-        return self._table(name).schema
-
-    async def scan(self, name: str, columns: Optional[list[str]], filters: Filters) -> pa.Table:
-        arrow = filter_and_project(self._table(name), columns, filters)
-        log.debug("metadata.scan(%r, columns=%s) -> %d rows", name, columns, arrow.num_rows)
-        return arrow
 
     def _build_kernel_table(self) -> pa.Table:
         fields: list[pa.Field[Any]] = [

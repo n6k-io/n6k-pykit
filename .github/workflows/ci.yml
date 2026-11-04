@@ -56,3 +56,40 @@ jobs:
 
       - name: Tag release
         run: .github/scripts/tag-release.sh
+
+  init:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "latest"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: n6k init
+        run: uv run n6k init "$RUNNER_TEMP/app"
+
+      - name: Use local n6k
+        working-directory: ${{ runner.temp }}/app
+        run: uv add --editable "$GITHUB_WORKSPACE"
+
+      - name: Install app dependencies
+        working-directory: ${{ runner.temp }}/app
+        run: uv sync --all-groups
+
+      - name: Python checks
+        working-directory: ${{ runner.temp }}/app
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy
+
+      - name: Node checks
+        working-directory: ${{ runner.temp }}/app
+        run: bun run ci
+
+      - name: n6k build
+        working-directory: ${{ runner.temp }}/app
+        run: uv run n6k build

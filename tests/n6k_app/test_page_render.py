@@ -66,3 +66,37 @@ def test_an_unknown_parameter_names_the_import_to_use() -> None:
 
     with pytest.raises(TypeError, match="from .data import revenue"):
         home.render({})
+
+
+def test_a_member_passed_as_a_prop_becomes_its_table_name(db: Database) -> None:
+    @db.data("rows")
+    def rows() -> pd.DataFrame:
+        return pd.DataFrame({"id": [1]})
+
+    @page
+    def home(c: Components) -> None:
+        c.Metric(label="n", data=rows, value="count(*)")
+
+    tree = home.render({}, {"sales": db})
+    assert tree["children"][0]["props"]["data"] == "sales.rows"
+
+
+def test_a_filters_dict_becomes_filter_objects_and_none_drops_a_column() -> None:
+    @page
+    def home(c: Components) -> None:
+        c.Metric(label="n", data="t", filters={"category": "Hardware", "region": None, "year": [2014, 2015]})
+
+    assert home.render({})["children"][0]["props"]["filters"] == [
+        {"column": "category", "operator": "=", "value": "Hardware"},
+        {"column": "year", "operator": "in", "value": [2014, 2015]},
+    ]
+
+
+def test_a_filters_list_passes_through_unchanged() -> None:
+    given = [{"column": "category", "operator": "!=", "value": "x"}]
+
+    @page
+    def home(c: Components) -> None:
+        c.Metric(label="n", data="t", filters=given)
+
+    assert home.render({})["children"][0]["props"]["filters"] == given

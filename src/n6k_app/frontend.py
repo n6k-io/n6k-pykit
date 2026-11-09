@@ -24,7 +24,7 @@ from typing import Any, Callable, overload
 import mistune
 
 from n6k_app.database import Database
-from n6k_app.members import Ref, bind_catalogs
+from n6k_app.members import Member, Ref, bind_catalogs
 
 __all__ = [
     "Components",
@@ -32,6 +32,25 @@ __all__ = [
     "Ref",
     "page",
 ]
+
+
+def _filters(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """``{"col": value}`` → ``=`` filters (``in`` for a list); ``None`` drops the column."""
+    return [
+        {"column": col, "operator": "in" if isinstance(val, (list, tuple)) else "=", "value": val}
+        for col, val in spec.items()
+        if val is not None
+    ]
+
+
+def _prop(name: str, value: Any) -> Any:
+    if isinstance(value, Ref):
+        return value.sql
+    if isinstance(value, Member):
+        return value.table
+    if name == "filters" and isinstance(value, dict):
+        return _filters(value)
+    return value
 
 
 class _Factory:
@@ -56,7 +75,7 @@ class _Factory:
                 {"component": self._name, "props": {**props, "value": value, "bind": key}, "children": []}
             )
             return value
-        props = {k: (v.sql if isinstance(v, Ref) else v) for k, v in props.items()}
+        props = {k: _prop(k, v) for k, v in props.items()}
         node: dict[str, Any] = {"component": self._name, "props": props, "children": list(children)}
         owner._children.append(node)
         return Components(owner._state, node["children"])

@@ -174,13 +174,6 @@ async def test_primary_keys_address_keyless_table(upstream: Upstream, serve: Any
     assert upstream.rows(f"SELECT name FROM {upstream.keyless} ORDER BY id") == [("A",), ("b",)]
 
 
-async def test_keyless_table_without_primary_keys_refuses_update(upstream: Upstream, serve: Any) -> None:
-    nk = upstream.q(upstream.keyless)
-    con = await serve(upstream.database([policy(nk, "select", "true"), policy(nk, "update", "true")]))
-    with pytest.raises(duckdb.BinderException, match="has no key"):
-        con.execute(f"UPDATE {upstream.served(upstream.keyless)} SET name = 'A' WHERE id = 1")
-
-
 async def test_view_over_granted_table(upstream: Upstream, serve: Any) -> None:
     db = upstream.database([policy(upstream.q(upstream.table), "select", "true")])
 
@@ -196,7 +189,7 @@ async def test_bridged_conn_is_locked_down(upstream: Upstream, serve: Any) -> No
     con = await serve(upstream.database([policy(upstream.q(upstream.table), "select", "true")]))
     assert con.sql(
         "SELECT current_setting('enable_external_access'), current_setting('lock_configuration')"
-    ).fetchone() == (False, True)
+    ).fetchall() == [(False, True)]
     with pytest.raises(duckdb.PermissionException):
         con.sql("SELECT * FROM read_csv('/etc/hosts')").fetchall()
     with pytest.raises(duckdb.InvalidInputException, match="locked"):

@@ -66,4 +66,4 @@ def test_unbridged_conn_disables_external_access_without_locking() -> None:
     finalize_serving_conn(con, bridged=False)
     assert con.sql(
         "SELECT current_setting('enable_external_access'), current_setting('lock_configuration')"
-    ).fetchone() == (False, False)
+    ).fetchall() == [(False, False)]

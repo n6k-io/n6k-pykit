@@ -87,6 +87,7 @@ stay on the server:
 ```python
 pg = PostgresDatabase(
     host="...",
+    database="...",
     policies=[
         policy("public.orders", "select", "status <> 'deleted'"),
         policy("public.orders", "insert", "true", check="amount > 0"),

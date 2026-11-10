@@ -5,18 +5,6 @@
 You still write Python, top to bottom, and get a live data app. The one change:
 your data lives in `data.py`, and the page reads it by name.
 
-## Your app's data is a database
-
-While the app runs, open a notebook or the DuckDB CLI and query the same tables
-the page shows:
-
-```sql
-ATTACH 'n6k://localhost:7823' AS db (TYPE n6k);
-SELECT * FROM db.revenue_by_month;
-```
-
-Nothing to export. The page and your notebook read the same data.
-
 ## Side by side
 
 A small sales dashboard: a title, a category filter, two KPIs and a
@@ -51,7 +39,9 @@ by_month = (
 st.line_chart(by_month, x="month", y="amount")
 ```
 
-**n6k**, `data.py`:
+Run it with `streamlit run app.py`.
+
+**n6k**, `src/app/data.py`:
 
 ```python
 import pandas as pd
@@ -72,7 +62,7 @@ def revenue_by_month(df: pd.DataFrame) -> pd.DataFrame:
     )
 ```
 
-**n6k**, `page.py`:
+**n6k**, `src/app/page.py`:
 
 ```python
 from n6k_app.frontend import Components, page
@@ -87,15 +77,16 @@ def sales(c: Components) -> None:
     category = c.Select(
         key="category",
         label="Category",
-        options=["All", "Hardware", "Software", "Services"],
-        default="All",
+        options=["Hardware", "Software", "Services"],
+        empty="All",
     )
-    f = {"category": None if category == "All" else category}
 
-    c.Metric(label="Revenue", data=revenue_by_month, value="sum(revenue)", valueFormat="$,.0f", filters=f)
-    c.Metric(label="Orders", data=revenue_by_month, value="sum(orders)", filters=f)
-    c.LineChart(data=revenue_by_month, x="month", y="sum(revenue)", filters=f)
+    c.Metric(label="Revenue", data=revenue_by_month, value="sum(revenue)", valueFormat="$,.0f", filters={"category": category})
+    c.Metric(label="Orders", data=revenue_by_month, value="sum(orders)", filters={"category": category})
+    c.LineChart(data=revenue_by_month, x="month", y="sum(revenue)", filters={"category": category})
 ```
+
+Run it with `uv run n6k dev`.
 
 ## What you get for free
 
@@ -104,6 +95,8 @@ def sales(c: Components) -> None:
   components. Your pandas code doesn't run again.
 - **The charts do the work.** Each component names a table and a filter. The
   browser queries the table for exactly what that component shows.
+- **Your data is a database.** While the app runs, any DuckDB can query the same
+  tables the page shows. See [Query it as SQL](#query-it-as-sql).
 
 ## Most dashboards don't need Python in the page
 
@@ -111,17 +104,15 @@ Usually the hard part is the data, and the page is just controls and charts.
 Keep your Python in `data.py` and write the same page as Markdown, `page.mdx`:
 
 ```mdx
-export const f = (c) => ({ category: c === "All" ? undefined : c });
-
 # Sales
 
 Revenue and order volume by month. Pick a category to drill in.
 
-::Select[category]{label="Category" options="All,Hardware,Software,Services" default="All"}
+::Select[category]{label="Category" options="Hardware,Software,Services" empty="All"}
 
-<Metric label="Revenue" data="db.revenue_by_month" value="sum(revenue)" valueFormat="$,.0f" filters={f(category)} />
-<Metric label="Orders" data="db.revenue_by_month" value="sum(orders)" filters={f(category)} />
-<LineChart data="db.revenue_by_month" x="month" y="sum(revenue)" filters={f(category)} />
+<Metric label="Revenue" data="db.revenue_by_month" value="sum(revenue)" valueFormat="$,.0f" filters={{ category }} />
+<Metric label="Orders" data="db.revenue_by_month" value="sum(orders)" filters={{ category }} />
+<LineChart data="db.revenue_by_month" x="month" y="sum(revenue)" filters={{ category }} />
 ```
 
 No Python runs for this page. It's plain frontend, and Python only runs in
@@ -130,27 +121,28 @@ No Python runs for this page. It's plain frontend, and Python only runs in
 ## Try it
 
 ```sh
-uvx n6k init myapp
+uvx n6k init myapp --ref streamlit-v2
 cd myapp
 uv run n6k dev
 ```
 
-The starter is a `src/app/data.py` with two sample tables, `alpha` and `beta`.
+This scaffolds the sales dashboard above, with a sample `orders.parquet`.
 
 ### View it as a web dashboard
 
-Open http://localhost:7823. `src/app/page.mdx` lets you browse the tables. Edit
-either file and the page reloads.
+Open http://localhost:7823 for the `page.py` version, and
+http://localhost:7823/mdx for the `page.mdx` version. Edit any file and the page
+reloads.
 
 ### Query it as SQL
 
 From the DuckDB CLI, started with `duckdb -unsigned`:
 
 ```sql
-INSTALL n6k FROM 'https://storage.googleapis.com/n6k-duckdb-release';
-LOAD n6k;
+INSTALL n6k_client FROM 'https://storage.googleapis.com/n6k-duckdb-release';
+LOAD n6k_client;
 ATTACH 'n6k://localhost:7823' AS db (TYPE n6k);
-SELECT * FROM db.alpha;
+SELECT * FROM db.revenue_by_month;
 ```
 
 ### Explore it with an agent

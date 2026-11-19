@@ -166,18 +166,15 @@ def test_unknown_page_is_rejected(app_dir: Path) -> None:
 
 
 def test_rpc_signature_and_named_args_reach_the_client(app_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (app_dir / "reports" / "data.py").write_text(
-        _DATA_PY
-        + """
+    (app_dir / "reports" / "data.py").write_text(_DATA_PY + """
 
 @db.rpc(returns=pa.schema([("a", pa.string()), ("b", pa.int64())]))
 def f(a: str, b: int = 1) -> pd.DataFrame:
     return pd.DataFrame({"a": [a], "b": [b]})
-"""
-    )
+""")
     (app_dir / "reports" / "page.test").write_text(
         "query II\nSELECT parameters, parameter_types FROM duckdb_functions() "
-        "WHERE database_name = 'db' AND function_name = 'f';\n----\n[a, b]\t[VARCHAR, BIGINT]\n\n"
+        "WHERE database_name = 'db' AND function_name = 'f';\n----\n['a', 'b']\t['VARCHAR', 'BIGINT']\n\n"
         "query II\nSELECT * FROM db.f(b => 2, a => 'x');\n----\nx\t2\n\n"
         "query II\nSELECT * FROM db.f('y');\n----\ny\t1\n"
     )

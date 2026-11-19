@@ -302,16 +302,16 @@ wheels = [
 
 [[package]]
 name = "duckdb-virtual-catalog"
-version = "0.1.3"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "duckdb" },
     { name = "numpy" },
     { name = "pyarrow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/58/ee5cfa6ec165a2cc6f15fad01f68e6af292fc96def7da35ce749eb339cfa/duckdb_virtual_catalog-0.1.3.tar.gz", hash = "sha256:6cfcc39d18b92dd12e30357dee9de89097f85a33287d44683755a4a26d25e27f", size = 1530459, upload-time = "2026-11-05T04:34:42.669Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/79/63/fd1ba8c5856e0b6a83b971db7a723f038ed5496d915f04fdd5b13a05811e/duckdb_virtual_catalog-0.2.3.tar.gz", hash = "sha256:c28897090a087b4e6a02c3a3f41a59eebb7c2fbb44556c50317957ef9719f6e7", size = 47917, upload-time = "2026-11-19T16:34:00.869Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/5c/8acafc40fa260c195b3286ce9a89a6d6ace96ba4b796f39337ec0a1ea2e8/duckdb_virtual_catalog-0.1.3-py3-none-any.whl", hash = "sha256:7f9fd3474bad4980830379c3639d4260da8c259b0b9a5c175d41d632a9fa2887", size = 1549989, upload-time = "2026-11-05T04:34:44.429Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/9c/cbe6d68673a7af5925be47e46a1fcbd8f9012b206cbb87d415b839e5aef2/duckdb_virtual_catalog-0.2.3-py3-none-any.whl", hash = "sha256:a6bde3bcd44e763e7d98535d53459235ff33d4a1d9c2c762e2c85bfb0ee2a377", size = 57043, upload-time = "2026-11-19T16:33:59.764Z" },
 ]
 
 [[package]]
@@ -758,7 +758,7 @@ wheels = [
 
 [[package]]
 name = "n6k"
-version = "0.12.0"
+version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -797,7 +797,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.5" },
     { name = "duckdb", specifier = "==2.0.0" },
-    { name = "duckdb-virtual-catalog", specifier = ">=0.1.3" },
+    { name = "duckdb-virtual-catalog", specifier = ">=0.2.3" },
     { name = "fastapi", specifier = ">=0.162" },
     { name = "mistune", specifier = ">=3.4" },
     { name = "n6k-duckdb", extras = ["mcp"], specifier = ">=0.13.1" },

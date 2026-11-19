@@ -174,7 +174,7 @@ def f(a: str, b: int = 1) -> pd.DataFrame:
 """)
     (app_dir / "reports" / "page.test").write_text(
         "query II\nSELECT parameters, parameter_types FROM duckdb_functions() "
-        "WHERE database_name = 'db' AND function_name = 'f';\n----\n['a', 'b']\t['VARCHAR', 'BIGINT']\n\n"
+        "WHERE database_name = 'db' AND function_name = 'f';\n----\n['a', 'b']\t['VARCHAR', 'ANY']\n\n"
         "query II\nSELECT * FROM db.f(b => 2, a => 'x');\n----\nx\t2\n\n"
         "query II\nSELECT * FROM db.f('y');\n----\ny\t1\n"
     )

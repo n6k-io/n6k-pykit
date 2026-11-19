@@ -25,7 +25,7 @@ from virtual_catalog.provider import (
     invalidate_provider_tables,
     register_provider,
 )
-from virtual_catalog.rpc_stream import register_rpc_streams
+from virtual_catalog.table_functions import TableFunction, register_table_functions
 
 log = logging.getLogger(__name__)
 
@@ -201,20 +201,18 @@ class MetadataProvider(TableProvider):
         return pa.table(data, schema=schema)
 
 
-def rpc_registry(namespaces: Namespaces, invalidator: Optional["CatalogInvalidator"] = None) -> dict[str, Any]:
+def table_functions(namespaces: Namespaces, invalidator: Optional["CatalogInvalidator"] = None) -> list[TableFunction]:
     """Exceptions reach the client as ERR (``register_rpc_streams``); ``sh`` reports a non-zero
     exit in ``returncode`` and does not raise."""
 
-    def run_python(scalars: list[Any], table: Optional[pa.Table]) -> pa.Table:
-        code = scalars[0] if scalars else ""
+    def python(code: str) -> pa.Table:
         target = namespaces.namespaces[0] if namespaces.namespaces else {}
         exec(compile(code, "<n6k_rpc_python>", "exec"), target)  # type: ignore[arg-type]
         if invalidator is not None:
             invalidator.invalidate([DEFAULT_SCHEMA])
         return pa.table({"ok": [True]}, schema=PYTHON_RPC_SCHEMA)
 
-    def run_sh(scalars: list[Any], table: Optional[pa.Table]) -> pa.Table:
-        command = scalars[0] if scalars else ""
+    def sh(command: str) -> pa.Table:
         proc = subprocess.run(command, shell=True, capture_output=True, text=True)
         return pa.table(
             {
@@ -225,10 +223,10 @@ def rpc_registry(namespaces: Namespaces, invalidator: Optional["CatalogInvalidat
             schema=SH_RPC_SCHEMA,
         )
 
-    return {
-        "python": (run_python, PYTHON_RPC_SCHEMA),
-        "sh": (run_sh, SH_RPC_SCHEMA),
-    }
+    return [
+        TableFunction(python, returns=PYTHON_RPC_SCHEMA),
+        TableFunction(sh, returns=SH_RPC_SCHEMA),
+    ]
 
 
 class CatalogInvalidator:
@@ -308,10 +306,10 @@ async def open_catalog(
     # Off the loop: registration runs SQL that calls back into the providers,
     # which are marshalled to this loop and would deadlock it.
     await asyncio.to_thread(
-        register_rpc_streams,
+        register_table_functions,
         con,
         catalog=catalog,
-        registry=rpc_registry(ns, invalidator),
+        functions=table_functions(ns, invalidator),
         main_loop=asyncio.get_running_loop(),
     )
     return con

@@ -13,7 +13,7 @@ from starlette.routing import WebSocketRoute
 from n6k_app import Database, PostgresDatabase, create_app, policy
 from n6k_app.database import catalog_name_error, open_serving_conn, serving_authenticator, serving_sessions
 from n6k_server.pump import WsReject
-from virtual_catalog.rpc_stream import StreamingRpc
+from tests.n6k_app.sql_rpc import query, serve, signature
 
 # A localhost port with nothing listening: the bridge's reachability check fails
 # fast (connection refused) instead of blocking on a timeout.
@@ -56,7 +56,7 @@ def test_reserved_catalog_names_are_rejected(name: str) -> None:
     assert "reserved by DuckDB" in (catalog_name_error(name) or "")
 
 
-def test_rpc_registry_adapts_registered_rpc() -> None:
+async def test_table_functions_bind_parent_table_and_args() -> None:
     db = Database()
 
     @db.data("nums")
@@ -67,14 +67,10 @@ def test_rpc_registry_adapts_registered_rpc() -> None:
     def top(df: pd.DataFrame, limit: int = 1) -> pd.DataFrame:
         return df.head(limit)
 
-    reg = db.rpc_registry()
-    assert "top" in reg
-    fn, schema = reg["top"]
-    assert not isinstance(fn, StreamingRpc)  # a finite rpc registers as a plain callable
-    # Driver contract: fn(scalars, table) -> pa.Table; scalars passed positionally.
-    out = fn([2], None)
-    assert isinstance(out, pa.Table)
-    assert out.num_rows == 2
+    con = await serve(db.table_functions())
+    assert signature(con, "top") == (["limit"], ["BIGINT"])
+    assert await query(con, "SELECT id FROM db.top(2) ORDER BY id") == [(1,), (2,)]
+    assert await query(con, "SELECT id FROM db.top()") == [(1,)]
 
 
 def test_start_records_connection_failure_instead_of_raising() -> None:

@@ -4,10 +4,10 @@ No test opens a real Postgres: the pool only dials on ``ensure_started()``, and 
 checkout is faked where a live connection would be.
 """
 
-import asyncio
 import contextlib
 from typing import Any, Iterator
 
+import duckdb
 import pandas as pd
 import psycopg
 import pyarrow as pa
@@ -17,7 +17,7 @@ from n6k_app.database import Database, PostgresDatabase, policy
 from n6k_app.drivers.base import driver_for_annotation
 from n6k_app.session_state import Session
 from n6k_app.table_registry import _rpc_param_binding
-from virtual_catalog.rpc_stream import StreamingRpc
+from tests.n6k_app.sql_rpc import query, serve, signature
 
 ROW = pa.schema([("v", pa.int64())])
 
@@ -75,7 +75,7 @@ def test_scalar_params_hide_connection() -> None:
     assert spec.scalar_params == ("v",)
 
 
-def test_finite_rpc_injects_connection() -> None:
+async def test_finite_rpc_injects_connection() -> None:
     db = _pg_db()
     stub = object()
 
@@ -90,14 +90,12 @@ def test_finite_rpc_injects_connection() -> None:
         yield stub
 
     db.connection_pool.native_checkout = fake_checkout  # type: ignore[method-assign]
-    entry, _ = db.rpc_registry()["r"]
-    assert not isinstance(entry, StreamingRpc)
-    out = entry([7], None)
-    assert isinstance(out, pa.Table)
-    assert out.column("v").to_pylist() == [7]
+    con = await serve(db.table_functions())
+    assert signature(con, "r") == (["v"], ["BIGINT"])
+    assert await query(con, "SELECT v FROM db.r(7)") == [(7,)]
 
 
-def test_exception_propagates_through_checkout() -> None:
+async def test_exception_propagates_through_checkout() -> None:
     db = _pg_db()
     seen: dict[str, BaseException] = {}
 
@@ -114,10 +112,9 @@ def test_exception_propagates_through_checkout() -> None:
             raise
 
     db.connection_pool.native_checkout = fake_checkout  # type: ignore[method-assign]
-    entry, _ = db.rpc_registry()["r"]
-    assert not isinstance(entry, StreamingRpc)
-    with pytest.raises(ValueError, match="boom"):
-        entry([], None)
+    con = await serve(db.table_functions())
+    with pytest.raises(duckdb.Error, match="boom"):
+        await query(con, "SELECT * FROM db.r()")
     assert isinstance(seen.get("exc"), ValueError)
 
 
@@ -129,32 +126,29 @@ def test_bare_database_connection_errors() -> None:
         return pd.DataFrame({"v": [1]})
 
     with pytest.raises(RuntimeError, match="postgres upstream"):
-        db.rpc_registry()
+        db.table_functions()
 
 
-def test_streaming_rpc_injects_connection() -> None:
+async def test_streaming_rpc_holds_connection_for_the_whole_stream() -> None:
     db = _pg_db()
     stub = object()
+    events: list[str] = []
 
     @db.rpc(returns=ROW)
     def r(conn: psycopg.Connection) -> Iterator[pd.DataFrame]:
         assert conn is stub
-        yield pd.DataFrame({"v": [1]})
+        for i in range(2):
+            events.append(f"yield:{i}")
+            yield pd.DataFrame({"v": [i]})
 
     @contextlib.contextmanager
     def fake_checkout(db_type: str) -> Iterator[Any]:
         assert db_type == "postgres"
+        events.append("checkout")
         yield stub
+        events.append("return")
 
     db.connection_pool.native_checkout = fake_checkout  # type: ignore[method-assign]
-    db.rpc_registry()  # builds without raising — streaming + Connection is supported
-
-    spec = db.table_registry.get_rpc("r")
-    assert spec is not None
-    fn = db._streaming_rpc_fn(spec, Session())
-
-    async def drive() -> list[pa.RecordBatch]:
-        return [batch async for batch in fn([], None)]
-
-    batches = asyncio.run(drive())
-    assert batches and batches[0].column("v").to_pylist() == [1]
+    con = await serve(db.table_functions())
+    assert await query(con, "SELECT v FROM db.r() ORDER BY v") == [(0,), (1,)]
+    assert events == ["checkout", "yield:0", "yield:1", "return"]

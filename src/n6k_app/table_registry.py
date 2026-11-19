@@ -51,11 +51,12 @@ class RpcSpec:
     # native_param: name of the driver-native `Connection` param (injected per call),
     # or None; native_db_type is the driver's db_type ("postgres") that param binds to.
     # scalar_params: params bound from SQL call args (excludes Session/Connection and,
-    # for a parent-bound RPC, the leading parent-DataFrame param).
+    # for a parent-bound RPC, the leading parent-DataFrame param `parent_param`).
     session_param: str | None = None
     native_param: str | None = None
     native_db_type: str | None = None
     scalar_params: tuple[str, ...] = ()
+    parent_param: str | None = None
 
 
 def _is_session_annotation(annotation: object) -> bool:
@@ -161,6 +162,12 @@ class TableRegistry:
         if name in self._rpcs:
             raise ValueError(f"RPC '{name}' is already registered in this database; RPC names must be unique.")
         session_param, native_param, native_db_type, scalar_params = _rpc_param_binding(fn, parent_table)
+        parent_param: str | None = None
+        if parent_table is not None:
+            params = list(inspect.signature(fn).parameters)
+            if not params:
+                raise ValueError(f"RPC '{name}' is bound to table '{parent_table}' but takes no parent parameter.")
+            parent_param = params[0]
         self._rpcs[name] = RpcSpec(
             name=name,
             fn=fn,
@@ -170,6 +177,7 @@ class TableRegistry:
             native_param=native_param,
             native_db_type=native_db_type,
             scalar_params=scalar_params,
+            parent_param=parent_param,
         )
 
     def get_rpc(self, name: str) -> RpcSpec | None:

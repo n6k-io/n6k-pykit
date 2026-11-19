@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 
+import duckdb
 import pandas as pd
 import pyarrow as pa
 import pytest
@@ -17,8 +18,9 @@ from n6k_app.kernel.catalog import (
     Namespaces,
     _to_arrow,
     open_catalog,
-    rpc_registry,
+    table_functions,
 )
+from tests.n6k_app.sql_rpc import query, serve
 
 
 def _main(*namespaces):
@@ -174,26 +176,23 @@ def test_metadata_vars_safe_summary_does_not_throw():
     assert by_name["bad"]["summary"] == "<unrepresentable>"
 
 
-def test_rpc_python_execs_into_globals():
+async def test_rpc_python_execs_into_globals():
     g: dict = {}
-    fn, schema = rpc_registry(Namespaces(g, {}))["python"]
-    out = fn(["x = 41 + 1"], None)
-    assert out.schema == schema
-    assert out.to_pylist() == [{"ok": True}]
+    con = await serve(table_functions(Namespaces(g, {})))
+    assert await query(con, "SELECT * FROM db.python('x = 41 + 1')") == [(True,)]
     assert g["x"] == 42
 
 
-def test_rpc_python_error_propagates():
-    fn, _ = rpc_registry(Namespaces({}))["python"]
-    with pytest.raises(ZeroDivisionError):
-        fn(["1 / 0"], None)
+async def test_rpc_python_error_propagates():
+    con = await serve(table_functions(Namespaces({})))
+    with pytest.raises(duckdb.Error, match="ZeroDivisionError|division by zero"):
+        await query(con, "SELECT * FROM db.python('1 / 0')")
 
 
-def test_rpc_sh():
-    fn, schema = rpc_registry(Namespaces({}))["sh"]
-    out = fn(["echo hi; echo err >&2; exit 3"], None)
-    assert out.schema == schema
-    assert out.to_pylist() == [{"returncode": 3, "stdout": "hi\n", "stderr": "err\n"}]
+async def test_rpc_sh():
+    con = await serve(table_functions(Namespaces({})))
+    rows = await query(con, "SELECT * FROM db.sh(command => 'echo hi; echo err >&2; exit 3')")
+    assert rows == [(3, "hi\n", "err\n")]
 
 
 class _CatalogLoop:

@@ -5,24 +5,22 @@ The same object bound in two pages stays one object with one pool.
 """
 
 import asyncio
-import inspect
 import logging
 import sys
 import traceback
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from types import ModuleType
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable
 
 import duckdb
 import pyarrow as pa
 from fastapi import FastAPI
 from virtual_catalog.bridge import Policy
 from n6k_server.pump import WsReject
-from virtual_catalog.rpc_stream import RpcEntryFn, StreamingRpc, register_rpc_streams
+from virtual_catalog.table_functions import TableFunction, register_table_functions
 
 from n6k_app.connections import ConnectionPool, ConnectionSpec
-from n6k_app.formats import to_arrow, to_record_batches
 from n6k_app.members import Rpc, Source, View
 from n6k_app.session import attach_catalog, create_serving_conn, finalize_serving_conn
 from n6k_app.session_state import Session
@@ -41,10 +39,6 @@ def catalog_name_error(name: str | None) -> str | None:
     if name in _RESERVED_CATALOGS:
         return f"catalog {name!r} is reserved by DuckDB (main/memory/temp/system)"
     return None
-
-
-# {name: (entry, schema)}; entry is a finite fn or a StreamingRpc.
-RpcRegistry = dict[str, tuple[RpcEntryFn, pa.Schema]]
 
 
 def _no_data_error(db: "Database") -> str:
@@ -138,10 +132,10 @@ class Database:
         # The reactor resolves an RPC name against these before the catalog, and drives
         # a streaming one on `loop`. One Session per catalog, shared by its every call.
         await asyncio.to_thread(
-            register_rpc_streams,
+            register_table_functions,
             con,
             catalog=catalog,
-            registry=self.rpc_registry(session),
+            functions=self.table_functions(session),
             main_loop=loop,
         )
 
@@ -182,109 +176,41 @@ class Database:
     def __getattr__(self, name: str) -> DatabaseSchemaHandle:
         return DatabaseSchemaHandle(self, name)
 
-    def rpc_registry(self, session: Session | None = None) -> RpcRegistry:
-        """Driver ``RpcRegistry`` adapting each ``@rpc`` fn to the ``(scalars,
-        table)`` contract: scalars bind by name, a ``Session`` param gets
-        ``session``, a parent-bound RPC gets the parent table as its first arg.
+    def table_functions(self, session: Session | None = None) -> list[TableFunction]:
+        """Each ``@rpc`` as a ``TableFunction``: SQL args bind by name, a ``Session`` param
+        gets ``session``, a ``Connection`` param a checked-out upstream connection held for
+        the call, and a parent-bound RPC the parent table as its first arg.
 
         ``session`` defaults to a throwaway ``Session`` for callers (e.g. tests)
         outside a live connection.
         """
         session = session if session is not None else Session()
-        reg: RpcRegistry = {}
+        functions: list[TableFunction] = []
         for name, spec in self.table_registry._rpcs.items():
-            # register_rpc guarantees a schema; assert rather than silently skip.
-            assert spec.return_schema is not None, f"RPC {name!r} reached rpc_registry() without a return schema"
-            is_streaming = inspect.isasyncgenfunction(spec.fn) or inspect.isgeneratorfunction(spec.fn)
+            assert spec.return_schema is not None, f"RPC {name!r} reached table_functions() without a return schema"
             if spec.native_db_type is not None:
                 # Fail fast at handler build: a Connection param needs a matching upstream.
                 self.connection_pool.sole_spec(spec.native_db_type)
-            if is_streaming:
-                reg[name] = (
-                    StreamingRpc(self._streaming_rpc_fn(spec, session)),
-                    spec.return_schema,
-                )
-            else:
-                reg[name] = (self._rpc_fn(spec, session), spec.return_schema)
-        return reg
+            functions.append(
+                TableFunction(spec.fn, returns=spec.return_schema, name=name, inject=self._rpc_inject(spec, session))
+            )
+        return functions
 
-    @staticmethod
-    def _bind_rpc_kwargs(
-        spec: RpcSpec, scalars: list[Any], session: Session, native_conn: Any = None
-    ) -> dict[str, Any]:
-        """Bind SQL call args to the RPC's scalar params by name, injecting
-        ``Session`` and a real driver-native ``Connection`` if requested (each by
-        name, so it can sit anywhere in the signature)."""
-        kwargs = dict(zip(spec.scalar_params, scalars))
+    def _rpc_inject(self, spec: RpcSpec, session: Session) -> dict[str, Callable[[], AbstractContextManager[Any]]]:
+        inject: dict[str, Callable[[], AbstractContextManager[Any]]] = {}
         if spec.session_param is not None:
-            kwargs[spec.session_param] = session
+            inject[spec.session_param] = lambda: nullcontext(session)
+        if spec.parent_param is not None:
+            parent_table = spec.parent_table
+            assert parent_table is not None
+            registry = self.table_registry
+            inject[spec.parent_param] = lambda: nullcontext(registry.load_table(parent_table).to_pandas())
         if spec.native_param is not None:
-            kwargs[spec.native_param] = native_conn
-        return kwargs
-
-    def _rpc_fn(self, spec: RpcSpec, session: Session) -> Callable[..., pa.Table]:
-        registry = self.table_registry
-        pool = self.connection_pool
-
-        def fn(scalars: list[Any], table: pa.Table | None) -> pa.Table:
-            # A Connection param lends the rpc a real connection for the call (the
-            # rpc owns its transaction); otherwise a no-op context. Gating on
-            # native_db_type (set iff native_param is) also narrows it to str.
-            cm = pool.native_checkout(spec.native_db_type) if spec.native_db_type is not None else nullcontext(None)
-            with cm as native_conn:
-                kwargs = self._bind_rpc_kwargs(spec, scalars, session, native_conn)
-                # Coerce the return to the declared schema (accepts a plain DataFrame).
-                if spec.parent_table:
-                    parent_df = registry.load_table(spec.parent_table).to_pandas()
-                    return to_arrow(spec.fn(parent_df, **kwargs), spec.return_schema)
-                return to_arrow(spec.fn(**kwargs), spec.return_schema)
-
-        return fn
-
-    def _streaming_rpc_fn(
-        self, spec: RpcSpec, session: Session
-    ) -> Callable[[list[Any], Optional[pa.Table]], AsyncIterator[pa.RecordBatch]]:
-        """Adapt a generator RPC (async or sync) to the streaming contract: each
-        yield is coerced to record batches and streamed lazily (may never end)."""
-        registry = self.table_registry
-        pool = self.connection_pool
-        schema = spec.return_schema
-        assert schema is not None
-        is_async = inspect.isasyncgenfunction(spec.fn)
-
-        async def fn(scalars: list[Any], table: pa.Table | None) -> AsyncIterator[pa.RecordBatch]:
-            # A Connection param lends the rpc a real connection held open across the
-            # whole stream (the generator uses it while it yields); the rpc owns its
-            # transaction. Otherwise a no-op context.
-            cm = pool.native_checkout(spec.native_db_type) if spec.native_db_type is not None else nullcontext(None)
-            with cm as native_conn:
-                kwargs = self._bind_rpc_kwargs(spec, scalars, session, native_conn)
-                if spec.parent_table:
-                    parent_df = registry.load_table(spec.parent_table).to_pandas()
-                    gen = spec.fn(parent_df, **kwargs)
-                else:
-                    gen = spec.fn(**kwargs)
-
-                if is_async:
-                    async for item in gen:
-                        for batch in to_record_batches(item, schema):
-                            yield batch
-                    return
-
-                # Sync generator: pull items off-thread so a blocking producer doesn't
-                # stall the loop; close() in finally runs its cleanup on teardown.
-                sentinel = object()
-                try:
-                    while True:
-                        item = await asyncio.to_thread(next, gen, sentinel)
-                        if item is sentinel:
-                            return
-                        for batch in to_record_batches(item, schema):
-                            yield batch
-                finally:
-                    gen.close()
-
-        return fn
+            db_type = spec.native_db_type
+            assert db_type is not None
+            pool = self.connection_pool
+            inject[spec.native_param] = lambda: pool.native_checkout(db_type)
+        return inject
 
     @property
     def _start_error(self) -> BaseException | None:
